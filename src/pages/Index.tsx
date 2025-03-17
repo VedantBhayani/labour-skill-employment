@@ -1,6 +1,4 @@
-
 import React, { useState } from "react";
-import { DashboardLayout } from "@/components/layouts/DashboardLayout";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ChartCard } from "@/components/dashboard/ChartCard";
 import { TasksList } from "@/components/dashboard/TasksList";
@@ -32,7 +30,6 @@ const departmentsData = [
   },
 ];
 
-// Make sure the status property uses the TaskStatus type values
 const tasksData = [
   {
     id: "task1",
@@ -72,7 +69,6 @@ const tasksData = [
   },
 ];
 
-// Make sure the type property uses the ActivityType type values
 const activitiesData = [
   {
     id: "act1",
@@ -145,86 +141,84 @@ const Index = () => {
   const [activeDepartment, setActiveDepartment] = useState("hr");
 
   return (
-    <DashboardLayout>
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            Welcome to your integrated dashboard overview.
-          </p>
-        </div>
-        
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
-          <StatCard
-            title="Total Employees"
-            value="78"
-            icon={Users}
-            trend="up"
-            trendValue="12% from last month"
-            className="animate-fade-in [animation-delay:100ms]"
-          />
-          <StatCard
-            title="Active Tasks"
-            value="45"
-            icon={CheckSquare}
-            trend="down"
-            trendValue="3% from last week"
-            className="animate-fade-in [animation-delay:200ms]"
-          />
-          <StatCard
-            title="Departments"
-            value="8"
-            icon={BarChart3}
-            className="animate-fade-in [animation-delay:300ms]"
-          />
-          <StatCard
-            title="Messages"
-            value="128"
-            icon={MessageCircle}
-            trend="up"
-            trendValue="24% from last week"
-            className="animate-fade-in [animation-delay:400ms]"
-          />
-        </div>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground mt-1">
+          Welcome to your integrated dashboard overview.
+        </p>
+      </div>
+      
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
+        <StatCard
+          title="Total Employees"
+          value="78"
+          icon={Users}
+          trend="up"
+          trendValue="12% from last month"
+          className="animate-fade-in [animation-delay:100ms]"
+        />
+        <StatCard
+          title="Active Tasks"
+          value="45"
+          icon={CheckSquare}
+          trend="down"
+          trendValue="3% from last week"
+          className="animate-fade-in [animation-delay:200ms]"
+        />
+        <StatCard
+          title="Departments"
+          value="8"
+          icon={BarChart3}
+          className="animate-fade-in [animation-delay:300ms]"
+        />
+        <StatCard
+          title="Messages"
+          value="128"
+          icon={MessageCircle}
+          trend="up"
+          trendValue="24% from last week"
+          className="animate-fade-in [animation-delay:400ms]"
+        />
+      </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <ChartCard
-            title="Department Performance"
-            type="line"
-            data={performanceData}
-            dataKey="value"
-            categories={["HR", "Sales", "Development"]}
-            className="animate-fade-in [animation-delay:500ms]"
-          />
-          <ChartCard
-            title="Task Distribution"
-            type="pie"
-            data={taskDistributionData}
-            dataKey="value"
-            className="animate-fade-in [animation-delay:600ms]"
-          />
-        </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <ChartCard
+          title="Department Performance"
+          type="line"
+          data={performanceData}
+          dataKey="value"
+          categories={["HR", "Sales", "Development"]}
+          className="animate-fade-in [animation-delay:500ms]"
+        />
+        <ChartCard
+          title="Task Distribution"
+          type="pie"
+          data={taskDistributionData}
+          dataKey="value"
+          className="animate-fade-in [animation-delay:600ms]"
+        />
+      </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <TasksList 
-            tasks={tasksData} 
-            className="lg:col-span-2 animate-fade-in [animation-delay:700ms]" 
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <TasksList 
+          tasks={tasksData} 
+          className="lg:col-span-2 animate-fade-in [animation-delay:700ms]" 
+        />
+        <div className="space-y-6">
+          <DepartmentSelector
+            departments={departmentsData}
+            activeDepartment={activeDepartment}
+            onDepartmentChange={setActiveDepartment}
+            className="animate-fade-in [animation-delay:800ms]"
           />
-          <div className="space-y-6">
-            <DepartmentSelector
-              departments={departmentsData}
-              activeDepartment={activeDepartment}
-              onDepartmentChange={setActiveDepartment}
-              className="animate-fade-in [animation-delay:800ms]"
-            />
-            <ActivityFeed 
-              activities={activitiesData} 
-              className="animate-fade-in [animation-delay:900ms]" 
-            />
-          </div>
+          <ActivityFeed 
+            activities={activitiesData} 
+            className="animate-fade-in [animation-delay:900ms]" 
+          />
         </div>
       </div>
-    </DashboardLayout>
+    </div>
   );
 };
 
