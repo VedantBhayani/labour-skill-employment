@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { DashboardLayout } from "@/components/layouts/DashboardLayout";
 import {
@@ -31,7 +30,7 @@ import {
   BellOff,
   Mail,
   Smartphone,
-  Desktop,
+  Monitor
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -43,7 +42,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 
-// Notification data with proper ActivityType values
 const notificationsData = [
   {
     id: "not1",
@@ -127,7 +125,6 @@ const notificationsData = [
   },
 ];
 
-// Notification preferences for the settings tab
 const notificationPreferences = [
   {
     id: "tasks",
@@ -404,7 +401,7 @@ const Notifications = () => {
                         <Smartphone size={14} /> Push
                       </div>
                       <div className="col-span-2 text-center flex items-center justify-center gap-1">
-                        <Desktop size={14} /> Desktop
+                        <Monitor size={14} /> Desktop
                       </div>
                     </div>
 

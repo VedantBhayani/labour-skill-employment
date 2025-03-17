@@ -1,4 +1,3 @@
-
 import React from "react";
 import { DashboardLayout } from "@/components/layouts/DashboardLayout";
 import { StatCard } from "@/components/dashboard/StatCard";
@@ -246,7 +245,7 @@ const Analytics = () => {
             <CardContent>
               <ChartCard
                 title=""
-                type="radial-bar"
+                type="pie"
                 data={resourceUtilizationData}
                 dataKey="value"
                 className="h-[300px]"
