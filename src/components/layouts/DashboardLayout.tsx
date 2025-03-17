@@ -5,11 +5,7 @@ import { cn } from "@/lib/utils";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { DashboardHeader } from "./DashboardHeader";
 
-interface DashboardLayoutProps {
-  children: React.ReactNode;
-}
-
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
@@ -24,7 +20,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           sidebarCollapsed ? "ml-16" : "ml-64",
         )}>
           <div className="max-w-7xl mx-auto animate-fade-in">
-            {children}
+            <Outlet />
           </div>
         </main>
       </div>
