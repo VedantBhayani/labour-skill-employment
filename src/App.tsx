@@ -3,9 +3,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import Login from "./pages/Login";
 import Calendar from "./pages/Calendar";
 import Tasks from "./pages/Tasks";
 import Analytics from "./pages/Analytics";
@@ -25,6 +26,10 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={<Login />} />
+          
+          {/* Protected dashboard routes */}
           <Route path="/" element={<DashboardLayout />}>
             <Route index element={<Index />} />
             <Route path="departments" element={<Departments />} />
@@ -36,6 +41,8 @@ const App = () => (
             <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<Settings />} />
           </Route>
+          
+          {/* Catch all route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
