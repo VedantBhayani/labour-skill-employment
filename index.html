@@ -8,6 +8,28 @@
     <meta name="author" content="Lovable" />
     <meta property="og:image" content="/og-image.png" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+    <!-- Theme script to avoid flash of wrong theme -->
+    <script>
+      // Check for theme preference in localStorage
+      const storedTheme = localStorage.getItem('theme');
+      
+      // Apply theme based on stored preference or system preference
+      if (storedTheme === 'dark' || 
+         (storedTheme === 'system' && 
+          window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      
+      // Apply accent color if stored
+      const storedAccentColor = localStorage.getItem('accentColor');
+      if (storedAccentColor) {
+        document.documentElement.classList.add(`accent-${storedAccentColor}`);
+      } else {
+        document.documentElement.classList.add('accent-blue');
+      }
+    </script>
   </head>
 
   <body>

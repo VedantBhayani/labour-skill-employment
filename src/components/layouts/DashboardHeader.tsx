@@ -1,5 +1,5 @@
 import React from "react";
-import { Bell, ChevronDown, Menu, Search, User, X } from "lucide-react";
+import { Bell, ChevronDown, Menu, Moon, Search, Sun, User, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link } from "react-router-dom";
+import { useTheme } from "@/components/ThemeProvider";
 
 interface DashboardHeaderProps {
   sidebarCollapsed: boolean;
@@ -19,6 +20,12 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ sidebarCollapsed, setSidebarCollapsed }: DashboardHeaderProps) {
+  const { theme, setTheme } = useTheme();
+  
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
+  
   return (
     <header className="h-14 border-b border-border bg-background z-20 sticky top-0 flex items-center justify-between px-4">
       <div className="flex items-center">
@@ -46,6 +53,15 @@ export function DashboardHeader({ sidebarCollapsed, setSidebarCollapsed }: Dashb
       </div>
 
       <div className="flex items-center gap-2">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={toggleTheme}
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+        </Button>
+        
         <Button variant="ghost" size="icon" className="relative">
           <Bell size={20} />
           <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />

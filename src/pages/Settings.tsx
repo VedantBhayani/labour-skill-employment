@@ -62,6 +62,23 @@ const Settings = () => {
     setNotificationPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
   };
   
+  // Theme handlers
+  const handleThemeChange = (newTheme: "light" | "dark" | "system") => {
+    setTheme(newTheme);
+    toast({
+      title: "Theme updated",
+      description: `Theme set to ${newTheme} mode.`
+    });
+  };
+
+  const handleAccentColorChange = (color: string) => {
+    setAccentColor(color as any);
+    toast({
+      title: "Accent color updated",
+      description: `Accent color changed to ${color}.`
+    });
+  };
+  
   // Save handlers
   const handleSaveProfile = () => {
     // In a real app, you would make an API call here
@@ -309,7 +326,7 @@ const Settings = () => {
                 <div className="space-y-0.5">
                   <Label>Theme Mode</Label>
                   <p className="text-sm text-muted-foreground">
-                    Choose between light and dark theme
+                    Choose between light, dark, or system theme
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -317,7 +334,8 @@ const Settings = () => {
                     variant={theme === "light" ? "default" : "outline"} 
                     size="icon" 
                     className="h-8 w-8"
-                    onClick={() => setTheme("light")}
+                    onClick={() => handleThemeChange("light")}
+                    title="Light Theme"
                   >
                     <Sun size={16} />
                   </Button>
@@ -325,9 +343,19 @@ const Settings = () => {
                     variant={theme === "dark" ? "default" : "outline"} 
                     size="icon" 
                     className="h-8 w-8"
-                    onClick={() => setTheme("dark")}
+                    onClick={() => handleThemeChange("dark")}
+                    title="Dark Theme"
                   >
                     <Moon size={16} />
+                  </Button>
+                  <Button 
+                    variant={theme === "system" ? "default" : "outline"} 
+                    size="icon" 
+                    className="h-8 w-8"
+                    onClick={() => handleThemeChange("system")}
+                    title="System Theme"
+                  >
+                    <Globe size={16} />
                   </Button>
                 </div>
               </div>
@@ -351,7 +379,7 @@ const Settings = () => {
                       className={`h-6 w-6 rounded-full ${color.className} cursor-pointer ${
                         accentColor === color.name ? "ring-2 ring-offset-2" : ""
                       }`}
-                      onClick={() => setAccentColor(color.name as any)}
+                      onClick={() => handleAccentColorChange(color.name)}
                     ></div>
                   ))}
                 </div>
@@ -433,5 +461,8 @@ const Settings = () => {
     </div>
   );
 };
+
+// Add a proper display name for dev tools debugging
+Settings.displayName = "SettingsPage";
 
 export default Settings;
