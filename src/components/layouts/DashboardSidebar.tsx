@@ -1,6 +1,5 @@
-
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { 
   BarChart3, 
@@ -65,6 +64,8 @@ const SidebarSection = ({ title, collapsed, children }: { title: string; collaps
 };
 
 export function DashboardSidebar({ collapsed }: DashboardSidebarProps) {
+  const location = useLocation();
+
   return (
     <aside
       className={cn(
@@ -80,25 +81,28 @@ export function DashboardSidebar({ collapsed }: DashboardSidebarProps) {
             label="Dashboard" 
             to="/" 
             collapsed={collapsed} 
-            active 
+            active={location.pathname === "/"} 
           />
           <SidebarItem 
             icon={Users} 
             label="Department Overview" 
             to="/departments" 
             collapsed={collapsed} 
+            active={location.pathname === "/departments"} 
           />
           <SidebarItem 
             icon={CheckSquare} 
             label="Task Management" 
             to="/tasks" 
             collapsed={collapsed} 
+            active={location.pathname === "/tasks"} 
           />
           <SidebarItem 
             icon={BarChart3} 
             label="Analytics" 
             to="/analytics" 
             collapsed={collapsed} 
+            active={location.pathname === "/analytics"} 
           />
         </SidebarSection>
 
@@ -108,12 +112,14 @@ export function DashboardSidebar({ collapsed }: DashboardSidebarProps) {
             label="Messages" 
             to="/messages" 
             collapsed={collapsed} 
+            active={location.pathname === "/messages"} 
           />
           <SidebarItem 
             icon={BellRing} 
             label="Notifications" 
             to="/notifications" 
             collapsed={collapsed} 
+            active={location.pathname === "/notifications"} 
           />
         </SidebarSection>
 
@@ -123,12 +129,14 @@ export function DashboardSidebar({ collapsed }: DashboardSidebarProps) {
             label="Calendar" 
             to="/calendar" 
             collapsed={collapsed} 
+            active={location.pathname === "/calendar"} 
           />
           <SidebarItem 
             icon={FileText} 
             label="Reports" 
             to="/reports" 
             collapsed={collapsed} 
+            active={location.pathname === "/reports"} 
           />
         </SidebarSection>
 
@@ -138,6 +146,7 @@ export function DashboardSidebar({ collapsed }: DashboardSidebarProps) {
             label="Settings" 
             to="/settings" 
             collapsed={collapsed} 
+            active={location.pathname === "/settings"} 
           />
         </div>
       </div>
