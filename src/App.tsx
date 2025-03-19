@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,6 +14,7 @@ import Notifications from "./pages/Notifications";
 import Departments from "./pages/Departments";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import Profile from './pages/Profile';
 import { DashboardLayout } from "./components/layouts/DashboardLayout";
 
 const queryClient = new QueryClient();
@@ -40,6 +40,7 @@ const App = () => (
             <Route path="calendar" element={<Calendar />} />
             <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="profile" element={<Profile />} />
           </Route>
           
           {/* Catch all route */}
