@@ -1,4 +1,3 @@
-
 import React from "react";
 import { CheckCircle2, AlertCircle, Clock, MoreHorizontal } from "lucide-react";
 import { 
@@ -16,18 +15,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-
-type TaskStatus = "completed" | "in-progress" | "pending";
-
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: TaskStatus;
-  dueDate: string;
-  department: string;
-  priority: "high" | "medium" | "low";
-}
+import { useTasks, Task, TaskStatus } from "@/components/TasksProvider";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 
 interface TasksListProps {
   tasks: Task[];
@@ -35,6 +42,15 @@ interface TasksListProps {
 }
 
 export function TasksList({ tasks, className }: TasksListProps) {
+  const { markAsCompleted, markAsInProgress, markAsPending, updateTask, deleteTask } = useTasks();
+  const { toast } = useToast();
+  const [editingTask, setEditingTask] = React.useState<Task | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [taskToDelete, setTaskToDelete] = React.useState<string | null>(null);
+  
+  // Departments
+  const departments = ["Development", "HR", "Marketing", "Finance", "Sales", "Operations"];
+
   const getStatusIcon = (status: TaskStatus) => {
     switch (status) {
       case "completed":
@@ -59,15 +75,49 @@ export function TasksList({ tasks, className }: TasksListProps) {
     }
   };
 
+  const handleStatusChange = (taskId: string, newStatus: TaskStatus) => {
+    if (newStatus === "completed") {
+      markAsCompleted(taskId);
+    } else if (newStatus === "in-progress") {
+      markAsInProgress(taskId);
+    } else if (newStatus === "pending") {
+      markAsPending(taskId);
+    }
+  };
+
+  const handleEditClick = (task: Task) => {
+    setEditingTask(task);
+  };
+
+  const handleDeleteClick = (taskId: string) => {
+    setTaskToDelete(taskId);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = () => {
+    if (taskToDelete) {
+      deleteTask(taskToDelete);
+      setShowDeleteDialog(false);
+      setTaskToDelete(null);
+    }
+  };
+
+  const handleUpdateTask = () => {
+    if (editingTask) {
+      updateTask(editingTask.id, editingTask);
+      setEditingTask(null);
+    }
+  };
+
   return (
-    <Card className={cn("animate-fade-in", className)}>
-      <CardHeader>
-        <CardTitle>Recent Tasks</CardTitle>
-        <CardDescription>Your assigned and ongoing tasks.</CardDescription>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="divide-y">
-          {tasks.map((task) => (
+    <>
+      <div className="divide-y">
+        {tasks.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-muted-foreground">No tasks found matching your criteria.</p>
+          </div>
+        ) : (
+          tasks.map((task) => (
             <div
               key={task.id}
               className="p-4 hover:bg-muted/50 transition-colors group relative overflow-hidden"
@@ -104,17 +154,184 @@ export function TasksList({ tasks, className }: TasksListProps) {
                       <span className="sr-only">Open</span>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Edit</DropdownMenuItem>
-                      <DropdownMenuItem>Mark as completed</DropdownMenuItem>
-                      <DropdownMenuItem>Delete</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleEditClick(task)}>
+                        Edit
+                      </DropdownMenuItem>
+                      {task.status !== "completed" && (
+                        <DropdownMenuItem onClick={() => handleStatusChange(task.id, "completed")}>
+                          Mark as completed
+                        </DropdownMenuItem>
+                      )}
+                      {task.status !== "in-progress" && (
+                        <DropdownMenuItem onClick={() => handleStatusChange(task.id, "in-progress")}>
+                          Mark as in progress
+                        </DropdownMenuItem>
+                      )}
+                      {task.status !== "pending" && (
+                        <DropdownMenuItem onClick={() => handleStatusChange(task.id, "pending")}>
+                          Mark as pending
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem 
+                        onClick={() => handleDeleteClick(task.id)}
+                        className="text-red-600"
+                      >
+                        Delete
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+          ))
+        )}
+      </div>
+
+      {/* Edit Task Dialog */}
+      {editingTask && (
+        <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Edit Task</DialogTitle>
+              <DialogDescription>
+                Make changes to the task details below.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor="title">
+                  Title
+                </label>
+                <Input
+                  id="title"
+                  value={editingTask.title}
+                  onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor="description">
+                  Description
+                </label>
+                <Textarea
+                  id="description"
+                  value={editingTask.description}
+                  onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })}
+                  className="min-h-[100px]"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Department</label>
+                  <Select
+                    value={editingTask.department}
+                    onValueChange={(value) => setEditingTask({ ...editingTask, department: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map((dept) => (
+                        <SelectItem key={dept} value={dept}>
+                          {dept}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Priority</label>
+                  <Select
+                    value={editingTask.priority}
+                    onValueChange={(value) => 
+                      setEditingTask({ 
+                        ...editingTask, 
+                        priority: value as "high" | "medium" | "low" 
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Due Date</label>
+                  <Select
+                    value={editingTask.dueDate}
+                    onValueChange={(value) => setEditingTask({ ...editingTask, dueDate: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Today">Today</SelectItem>
+                      <SelectItem value="Tomorrow">Tomorrow</SelectItem>
+                      <SelectItem value="3 days">3 days</SelectItem>
+                      <SelectItem value="1 week">1 week</SelectItem>
+                      <SelectItem value="2 weeks">2 weeks</SelectItem>
+                      <SelectItem value="1 month">1 month</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Status</label>
+                  <Select
+                    value={editingTask.status}
+                    onValueChange={(value) => 
+                      setEditingTask({ 
+                        ...editingTask, 
+                        status: value as "completed" | "in-progress" | "pending" 
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="in-progress">In Progress</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingTask(null)}>
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateTask}>Save Changes</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this task? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

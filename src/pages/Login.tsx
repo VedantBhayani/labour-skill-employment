@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -11,6 +10,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/components/AuthProvider";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -21,8 +21,10 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { login } = useAuth();
   
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -36,20 +38,26 @@ const Login = () => {
     setShowPassword(!showPassword);
   };
 
-  const onSubmit = (data: LoginFormValues) => {
-    // This is a placeholder for actual authentication logic
-    console.log("Login attempt with:", data);
-    
-    // Simulate a successful login
-    toast({
-      title: "Login successful",
-      description: "Welcome back to the dashboard",
-    });
-    
-    // Redirect to dashboard after successful login
-    setTimeout(() => {
-      navigate("/");
-    }, 1000);
+  const onSubmit = async (data: LoginFormValues) => {
+    setIsLoading(true);
+    try {
+      const success = await login(data.email, data.password);
+      
+      if (success) {
+        // If login is successful, it will redirect automatically via AuthProvider
+        // But we can add an extra redirect just to be sure
+        navigate("/");
+      }
+    } catch (error) {
+      toast({
+        title: "Login failed",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+      console.error("Login error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -126,11 +134,20 @@ const Login = () => {
                   )}
                 />
                 
-                <Button type="submit" className="w-full">
-                  Sign In
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Signing in..." : "Sign In"}
                 </Button>
               </form>
             </Form>
+
+            {/* Demo credentials */}
+            <div className="mt-6 p-3 bg-muted rounded-md text-xs">
+              <p className="font-medium mb-1">Demo credentials:</p>
+              <p><strong>Admin:</strong> admin@example.com / password123</p>
+              <p><strong>Department Head:</strong> head@example.com / password123</p>
+              <p><strong>Manager:</strong> manager@example.com / password123</p>
+              <p><strong>Employee:</strong> employee@example.com / password123</p>
+            </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <div className="text-sm text-center text-muted-foreground">

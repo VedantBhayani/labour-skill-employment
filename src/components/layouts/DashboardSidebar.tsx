@@ -10,8 +10,17 @@ import {
   Calendar, 
   Settings, 
   BellRing, 
-  CheckSquare 
+  CheckSquare,
+  MessagesSquare,
+  MessageCircle,
+  Bell,
+  FileBadge,
+  ChevronLeftSquare,
+  ChevronRightSquare,
+  ClipboardList,
+  Package,
 } from "lucide-react";
+import { useAuth } from "@/components/AuthProvider";
 
 interface DashboardSidebarProps {
   collapsed: boolean;
@@ -65,6 +74,8 @@ const SidebarSection = ({ title, collapsed, children }: { title: string; collaps
 
 export function DashboardSidebar({ collapsed }: DashboardSidebarProps) {
   const location = useLocation();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   return (
     <aside
@@ -108,22 +119,36 @@ export function DashboardSidebar({ collapsed }: DashboardSidebarProps) {
 
         <SidebarSection title="Communication" collapsed={collapsed}>
           <SidebarItem 
-            icon={MessageSquare} 
+            icon={MessageCircle} 
             label="Messages" 
             to="/messages" 
             collapsed={collapsed} 
             active={location.pathname === "/messages"} 
           />
           <SidebarItem 
-            icon={BellRing} 
+            icon={MessagesSquare} 
+            label="Discussions" 
+            to="/discussions" 
+            collapsed={collapsed} 
+            active={location.pathname === "/discussions"} 
+          />
+          <SidebarItem 
+            icon={Bell} 
             label="Notifications" 
             to="/notifications" 
             collapsed={collapsed} 
             active={location.pathname === "/notifications"} 
           />
+          <SidebarItem 
+            icon={FileText} 
+            label="Grievances" 
+            to="/grievances" 
+            collapsed={collapsed} 
+            active={location.pathname === "/grievances"} 
+          />
         </SidebarSection>
 
-        <SidebarSection title="Organization" collapsed={collapsed}>
+        <SidebarSection title="Productivity" collapsed={collapsed}>
           <SidebarItem 
             icon={Calendar} 
             label="Calendar" 
@@ -138,7 +163,33 @@ export function DashboardSidebar({ collapsed }: DashboardSidebarProps) {
             collapsed={collapsed} 
             active={location.pathname === "/reports"} 
           />
+          <SidebarItem 
+            icon={FileBadge} 
+            label="Documents" 
+            to="/documents" 
+            collapsed={collapsed} 
+            active={location.pathname === "/documents"} 
+          />
         </SidebarSection>
+
+        {isAdmin && (
+          <SidebarSection title="Administration" collapsed={collapsed}>
+            <SidebarItem 
+              icon={ClipboardList} 
+              label="Audit Logs" 
+              to="/audit-logs" 
+              collapsed={collapsed} 
+              active={location.pathname === "/audit-logs"} 
+            />
+            <SidebarItem 
+              icon={Package} 
+              label="Plugins" 
+              to="/plugins" 
+              collapsed={collapsed} 
+              active={location.pathname === "/plugins"} 
+            />
+          </SidebarSection>
+        )}
 
         <div className="mt-auto">
           <SidebarItem 

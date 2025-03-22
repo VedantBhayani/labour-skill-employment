@@ -5,6 +5,8 @@ import { TasksList } from "@/components/dashboard/TasksList";
 import { DepartmentSelector } from "@/components/dashboard/DepartmentSelector";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { Users, BarChart3, CheckSquare, MessageCircle } from "lucide-react";
+import { PluginSlot } from "@/components/PluginSlot";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const departmentsData = [
   {
@@ -198,6 +200,28 @@ const Index = () => {
           dataKey="value"
           className="animate-fade-in [animation-delay:600ms]"
         />
+      </div>
+
+      {/* Plugin Dashboard Widgets Section */}
+      <div className="animate-fade-in [animation-delay:650ms]">
+        <h2 className="text-xl font-semibold mb-4">Plugin Widgets</h2>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <PluginSlot 
+            name="dashboard.widgets" 
+            fallback={
+              <Card>
+                <CardHeader>
+                  <CardTitle>No Plugin Widgets</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">
+                    No plugin widgets are currently available. Install and enable plugins to see widgets here.
+                  </p>
+                </CardContent>
+              </Card>
+            }
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ChartCard } from "@/components/dashboard/ChartCard";
 import { TasksList } from "@/components/dashboard/TasksList";
+import { useTasks } from "@/components/TasksProvider";
+import { AddTaskDialog } from "@/components/dashboard/AddTaskDialog";
 import { 
   CheckSquare, 
   Clock, 
   AlertCircle, 
-  Plus, 
   Filter, 
   Search,
   SortAsc
@@ -30,114 +31,113 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const tasksData = [
-  {
-    id: "task1",
-    title: "Update department overview dashboard",
-    description: "Implement new data visualization for the HR department dashboard",
-    status: "in-progress" as const,
-    dueDate: "Tomorrow",
-    department: "Development",
-    priority: "high" as const,
-  },
-  {
-    id: "task2",
-    title: "Review quarterly performance metrics",
-    description: "Analyze and prepare summary of Q3 performance data for all departments",
-    status: "pending" as const,
-    dueDate: "Next week",
-    department: "HR",
-    priority: "medium" as const,
-  },
-  {
-    id: "task3",
-    title: "Prepare communication hub documentation",
-    description: "Create user guide for the new messaging and notification system",
-    status: "completed" as const,
-    dueDate: "Yesterday",
-    department: "Sales",
-    priority: "low" as const,
-  },
-  {
-    id: "task4",
-    title: "Task assignment system update",
-    description: "Implement new features for task tracking and assignment workflow",
-    status: "in-progress" as const,
-    dueDate: "3 days",
-    department: "Development",
-    priority: "medium" as const,
-  },
-  {
-    id: "task5",
-    title: "Create marketing campaign proposal",
-    description: "Develop a comprehensive marketing strategy for Q4",
-    status: "pending" as const,
-    dueDate: "Next week",
-    department: "Marketing",
-    priority: "high" as const,
-  },
-  {
-    id: "task6",
-    title: "Update employee onboarding documentation",
-    description: "Revise the onboarding materials for new hires",
-    status: "completed" as const,
-    dueDate: "Last week",
-    department: "HR",
-    priority: "medium" as const,
-  },
-  {
-    id: "task7",
-    title: "Quarterly financial report",
-    description: "Prepare and review the Q3 financial statements and analysis",
-    status: "in-progress" as const,
-    dueDate: "5 days",
-    department: "Finance",
-    priority: "high" as const,
-  },
-  {
-    id: "task8",
-    title: "Implement new authentication system",
-    description: "Update the user authentication flow with improved security",
-    status: "pending" as const,
-    dueDate: "2 weeks",
-    department: "Development",
-    priority: "high" as const,
-  },
-];
-
-const taskDistributionData = [
-  { name: "Completed", value: 35 },
-  { name: "In Progress", value: 45 },
-  { name: "Pending", value: 20 },
-];
-
-const departmentTasksData = [
-  { name: "HR", Completed: 14, "In Progress": 10, Pending: 8 },
-  { name: "Sales", Completed: 10, "In Progress": 12, Pending: 6 },
-  { name: "Development", Completed: 18, "In Progress": 22, Pending: 8 },
-  { name: "Marketing", Completed: 8, "In Progress": 9, Pending: 5 },
-  { name: "Finance", Completed: 6, "In Progress": 5, Pending: 4 },
-];
-
 const Tasks = () => {
+  const { tasks, getTasksByStatus } = useTasks();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const [filterByDepartment, setFilterByDepartment] = useState<string[]>([]);
+  const [filterByPriority, setFilterByPriority] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState("dueDate");
 
-  const filteredTasks = tasksData.filter(task => {
+  // Get unique departments from tasks
+  const departments = Array.from(
+    new Set(tasks.map((task) => task.department))
+  );
+
+  // Check if department filter is active
+  const isDepartmentFilterActive = filterByDepartment.length > 0;
+  
+  // Check if priority filter is active
+  const isPriorityFilterActive = filterByPriority.length > 0;
+
+  // Get filtered tasks based on search, tabs, and filters
+  const filteredTasks = tasks.filter(task => {
+    // Search filter
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           task.description.toLowerCase().includes(searchQuery.toLowerCase());
     
-    if (activeTab === "all") return matchesSearch;
-    if (activeTab === "completed") return matchesSearch && task.status === "completed";
-    if (activeTab === "in-progress") return matchesSearch && task.status === "in-progress";
-    if (activeTab === "pending") return matchesSearch && task.status === "pending";
+    // Tab filter
+    const matchesTab = 
+      activeTab === "all" ||
+      (activeTab === "completed" && task.status === "completed") ||
+      (activeTab === "in-progress" && task.status === "in-progress") ||
+      (activeTab === "pending" && task.status === "pending");
     
-    return matchesSearch;
+    // Department filter
+    const matchesDepartment = !isDepartmentFilterActive || filterByDepartment.includes(task.department);
+    
+    // Priority filter
+    const matchesPriority = !isPriorityFilterActive || filterByPriority.includes(task.priority);
+    
+    return matchesSearch && matchesTab && matchesDepartment && matchesPriority;
   });
 
-  const completedTasks = tasksData.filter(task => task.status === "completed").length;
-  const inProgressTasks = tasksData.filter(task => task.status === "in-progress").length;
-  const pendingTasks = tasksData.filter(task => task.status === "pending").length;
+  // Sort tasks
+  const sortedTasks = [...filteredTasks].sort((a, b) => {
+    if (sortBy === "dueDate") {
+      // Simple sorting based on string comparison for this demo
+      return a.dueDate.localeCompare(b.dueDate);
+    } else if (sortBy === "priority") {
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    } else if (sortBy === "alphabetical") {
+      return a.title.localeCompare(b.title);
+    }
+    return 0;
+  });
+
+  // Task statistics
+  const completedTasks = getTasksByStatus("completed").length;
+  const inProgressTasks = getTasksByStatus("in-progress").length;
+  const pendingTasks = getTasksByStatus("pending").length;
+
+  // Task distribution data for chart
+  const taskDistributionData = [
+    { name: "Completed", value: completedTasks },
+    { name: "In Progress", value: inProgressTasks },
+    { name: "Pending", value: pendingTasks },
+  ];
+
+  // Department tasks data for chart
+  const departmentTasksData = departments.map(department => {
+    const deptTasks = tasks.filter(task => task.department === department);
+    const completed = deptTasks.filter(task => task.status === "completed").length;
+    const inProgress = deptTasks.filter(task => task.status === "in-progress").length;
+    const pending = deptTasks.filter(task => task.status === "pending").length;
+    
+    return {
+      name: department,
+      Completed: completed,
+      "In Progress": inProgress,
+      Pending: pending
+    };
+  });
+
+  // Toggle department filter
+  const toggleDepartmentFilter = (department: string) => {
+    setFilterByDepartment(prev => 
+      prev.includes(department)
+        ? prev.filter(dep => dep !== department)
+        : [...prev, department]
+    );
+  };
+
+  // Toggle priority filter
+  const togglePriorityFilter = (priority: string) => {
+    setFilterByPriority(prev => 
+      prev.includes(priority)
+        ? prev.filter(pri => pri !== priority)
+        : [...prev, priority]
+    );
+  };
+
+  // Reset all filters
+  const resetAllFilters = () => {
+    setFilterByDepartment([]);
+    setFilterByPriority([]);
+    setSearchQuery("");
+    setActiveTab("all");
+  };
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -148,10 +148,7 @@ const Tasks = () => {
             Track, manage, and assign tasks across departments
           </p>
         </div>
-        <Button className="flex items-center gap-2">
-          <Plus size={16} />
-          New Task
-        </Button>
+        <AddTaskDialog />
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -212,13 +209,47 @@ const Tasks = () => {
                     Filter
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuCheckboxItem checked>
-                    Show All Departments
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem checked>
-                    Show All Priorities
-                  </DropdownMenuCheckboxItem>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="p-2">
+                    <div className="font-medium mb-1">Departments</div>
+                    {departments.map((department) => (
+                      <DropdownMenuCheckboxItem
+                        key={department}
+                        checked={filterByDepartment.includes(department)}
+                        onCheckedChange={() => toggleDepartmentFilter(department)}
+                      >
+                        {department}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                    <div className="font-medium mb-1 mt-4">Priority</div>
+                    <DropdownMenuCheckboxItem
+                      checked={filterByPriority.includes("high")}
+                      onCheckedChange={() => togglePriorityFilter("high")}
+                    >
+                      High
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      checked={filterByPriority.includes("medium")}
+                      onCheckedChange={() => togglePriorityFilter("medium")}
+                    >
+                      Medium
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      checked={filterByPriority.includes("low")}
+                      onCheckedChange={() => togglePriorityFilter("low")}
+                    >
+                      Low
+                    </DropdownMenuCheckboxItem>
+                    <div className="border-t my-2"></div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="w-full" 
+                      onClick={resetAllFilters}
+                    >
+                      Reset Filters
+                    </Button>
+                  </div>
                 </DropdownMenuContent>
               </DropdownMenu>
               <DropdownMenu>
@@ -229,13 +260,22 @@ const Tasks = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuCheckboxItem checked>
+                  <DropdownMenuCheckboxItem
+                    checked={sortBy === "dueDate"}
+                    onCheckedChange={() => setSortBy("dueDate")}
+                  >
                     Due Date (Closest First)
                   </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={sortBy === "priority"}
+                    onCheckedChange={() => setSortBy("priority")}
+                  >
                     Priority (High to Low)
                   </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={sortBy === "alphabetical"}
+                    onCheckedChange={() => setSortBy("alphabetical")}
+                  >
                     Alphabetical (A-Z)
                   </DropdownMenuCheckboxItem>
                 </DropdownMenuContent>
@@ -263,11 +303,11 @@ const Tasks = () => {
           </Tabs>
         </CardHeader>
         <CardContent className="p-0">
-          <TasksList tasks={filteredTasks} />
+          <TasksList tasks={sortedTasks} />
         </CardContent>
         <CardFooter className="flex justify-between py-4">
           <p className="text-sm text-muted-foreground">
-            Showing {filteredTasks.length} of {tasksData.length} tasks
+            Showing {sortedTasks.length} of {tasks.length} tasks
           </p>
           <div className="flex gap-1">
             <Badge variant="outline">{completedTasks} Completed</Badge>

@@ -14,12 +14,15 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Bell, Shield, Globe, Moon, Sun } from "lucide-react";
+import { User, Bell, Shield, Globe, Moon, Sun, Package } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { toast } from "@/hooks/use-toast";
+import { PluginMenuItems } from "@/components/PluginSlot";
+import { usePlugins } from "@/components/PluginProvider";
 
 const Settings = () => {
   const { theme, accentColor, setTheme, setAccentColor } = useTheme();
+  const { plugins, enabledPlugins } = usePlugins();
   
   // User profile state
   const [profileData, setProfileData] = useState({
@@ -122,6 +125,9 @@ const Settings = () => {
     });
   };
   
+  // Generate tabs for plugin settings
+  const hasPluginSettings = enabledPlugins.length > 0;
+  
   return (
     <div className="space-y-8 animate-fade-in">
       <div>
@@ -149,6 +155,12 @@ const Settings = () => {
             <Shield size={16} />
             <span className="hidden sm:inline">Security</span>
           </TabsTrigger>
+          {hasPluginSettings && (
+            <TabsTrigger value="plugins" className="flex items-center gap-2">
+              <Package size={16} />
+              <span className="hidden sm:inline">Plugins</span>
+            </TabsTrigger>
+          )}
         </TabsList>
         
         <TabsContent value="account" className="space-y-6 mt-6">
