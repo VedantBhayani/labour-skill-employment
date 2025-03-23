@@ -1,6 +1,9 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from "@/hooks/use-toast";
+import { websocketService, WebSocketMessage, ConnectionStatus } from "@/lib/websocketService";
+import { notificationService } from "@/lib/notificationService";
+import { realTimeService, MOCK_MODE } from "@/lib/realTimeService";
 
 // Define types
 export interface User {
@@ -59,7 +62,7 @@ const MOCK_USERS: User[] = [
   {
     id: 'user1',
     name: 'John Doe',
-    avatar: 'JD',
+    avatar: 'DH',
     status: 'online',
     role: 'Department Head',
     department: 'Engineering'
@@ -141,6 +144,13 @@ const MOCK_CHANNELS: Channel[] = [
     type: 'team',
     members: ['admin', 'user1', 'employee1'],
     description: 'Testing channel'
+  },
+  {
+    id: 'new1',
+    name: 'new1',
+    type: 'team',
+    members: ['admin', 'user1', 'employee1'],
+    description: 'New team channel for testing'
   },
   {
     id: 'directChannel1',
@@ -307,21 +317,32 @@ interface CommunicationContextType {
   messages: Record<string, Message[]>;
   notifications: Notification[];
   isConnected: boolean;
-  sendMessage: (channelId: string, content: string) => Promise<void>;
+  connectionStatus: ConnectionStatus;
+  sendMessage: (channelId: string, content: string, messageId?: string) => Promise<void>;
   editMessage: (messageId: string, channelId: string, newContent: string) => Promise<void>;
   deleteMessage: (messageId: string, channelId: string) => Promise<void>;
   markMessageAsRead: (messageId: string, channelId: string) => void;
   markNotificationAsRead: (notificationId: string) => void;
   markAllNotificationsAsRead: () => void;
   deleteNotification: (notificationId: string) => void;
-  createChannel: (channelData: Partial<Channel>) => Promise<void>;
-  reconnect: () => Promise<void>;
+  createChannel: (name: string, type: 'department' | 'team' | 'direct', members: string[], description?: string, isPrivate?: boolean) => Promise<string>;
+  joinChannel: (channelId: string) => Promise<boolean>;
+  leaveChannel: (channelId: string) => Promise<boolean>;
   switchUser: (userId: string) => boolean;
   clearChannelMessages: (channelId: string) => void;
+  startTyping: (channelId: string) => void;
+  stopTyping: (channelId: string) => void;
+  typingUsers: Record<string, string[]>;
+  enablePushNotifications: () => Promise<boolean>;
+  disablePushNotifications: () => Promise<boolean>;
+  pushNotificationsEnabled: boolean;
+  resetLocalStorage: () => void;
+  getLocalStorageInfo: () => { channels: Channel[], messages: Record<string, Message[]> };
+  markChannelAsRead: (channelId: string) => void;
 }
 
 // Create context
-const CommunicationContext = createContext<CommunicationContextType | null>(null);
+const CommunicationContext = createContext<CommunicationContextType | undefined>(undefined);
 
 // Provider component
 export const CommunicationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -332,9 +353,208 @@ export const CommunicationProvider: React.FC<{ children: ReactNode }> = ({ child
   const [isConnected, setIsConnected] = useState<boolean>(true);
   const [currentUser, setCurrentUser] = useState<User>(adminUser);
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
-  const [channels, setChannels] = useState<Channel[]>(MOCK_CHANNELS);
-  const [messages, setMessages] = useState<Record<string, Message[]>>(MOCK_MESSAGES);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [messages, setMessages] = useState<Record<string, Message[]>>({});
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const [typingUsers, setTypingUsers] = useState<Record<string, string[]>>({});
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
+  const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState<boolean>(false);
+
+  // Load channels and messages from localStorage on initial load
+  useEffect(() => {
+    try {
+      // Load channels
+      const savedChannels = localStorage.getItem('channels');
+      if (savedChannels) {
+        setChannels(JSON.parse(savedChannels));
+      } else {
+        // First time loading, save the mock channels
+        setChannels(MOCK_CHANNELS);
+        localStorage.setItem('channels', JSON.stringify(MOCK_CHANNELS));
+      }
+
+      // Load messages
+      const savedMessages = localStorage.getItem('messages');
+      if (savedMessages) {
+        setMessages(JSON.parse(savedMessages));
+      } else {
+        // First time loading, save the mock messages
+        setMessages(MOCK_MESSAGES);
+        localStorage.setItem('messages', JSON.stringify(MOCK_MESSAGES));
+      }
+    } catch (error) {
+      console.error('Error loading data from localStorage:', error);
+      // Fall back to mock data if localStorage fails
+      setChannels(MOCK_CHANNELS);
+      setMessages(MOCK_MESSAGES);
+    }
+  }, []);
+
+  // Save channels to localStorage whenever they change
+  useEffect(() => {
+    if (channels.length > 0) {
+      try {
+        localStorage.setItem('channels', JSON.stringify(channels));
+      } catch (error) {
+        console.error('Error saving channels to localStorage:', error);
+      }
+    }
+  }, [channels]);
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    if (Object.keys(messages).length > 0) {
+      try {
+        localStorage.setItem('messages', JSON.stringify(messages));
+      } catch (error) {
+        console.error('Error saving messages to localStorage:', error);
+      }
+    }
+  }, [messages]);
+
+  // Initialize real-time service on first render
+  useEffect(() => {
+    // Initialize the real-time service
+    realTimeService.initialize({
+      userId: currentUser.id,
+      authToken: 'dummy-token', // In production, use a real token
+      enablePushNotifications: pushNotificationsEnabled,
+      onConnectionStatusChange: (status) => {
+        console.log('WebSocket connection status:', status);
+        setConnectionStatus(status);
+        setIsConnected(status === 'connected');
+      },
+      onMessageReceived: (message) => {
+        console.log('Message received:', message);
+        
+        // Special handling for clear channel messages
+        if (message._clearChannel && message.channelId) {
+          // Clear the messages for this channel
+          setMessages(prev => ({
+            ...prev,
+            [message.channelId]: []
+          }));
+          
+          // Show toast to inform user
+          toast({
+            title: "Channel Cleared",
+            description: `All messages in this channel have been cleared.`
+          });
+          
+          return;
+        }
+        
+        // Regular message handling
+        if (message.channelId && message.content) {
+          setMessages(prev => {
+            const channelMessages = prev[message.channelId] || [];
+            
+            // Check if this message already exists to prevent duplicates
+            if (channelMessages.some(msg => msg.id === message.id)) {
+              return prev;
+            }
+            
+            return {
+              ...prev,
+              [message.channelId]: [...channelMessages, message]
+            };
+          });
+        }
+      },
+      onUserStatusChange: (userId, status) => {
+        console.log('User status changed:', userId, status);
+        
+        // Update user status in the users state
+        setUsers(prev => 
+          prev.map(user => 
+            user.id === userId 
+              ? {...user, status} 
+              : user
+          )
+        );
+      },
+      onNotificationReceived: (notification) => {
+        console.log('Notification received:', notification);
+        
+        // Add the notification to the notifications state
+        setNotifications(prev => [notification, ...prev]);
+      }
+    });
+    
+    // Cleanup on unmount
+    return () => {
+      realTimeService.dispose();
+    };
+  }, []); // Only run on initial mount
+
+  // Update real-time service when user changes
+  useEffect(() => {
+    realTimeService.updateCredentials(currentUser.id, 'dummy-token');
+  }, [currentUser.id]);
+
+  // Send a message to a channel
+  const sendMessage = async (channelId: string, content: string, messageId?: string): Promise<void> => {
+    // Find the channel
+    const channel = channels.find(c => c.id === channelId);
+    if (!channel) {
+      toast({
+        title: "Error",
+        description: "Channel not found.",
+        variant: "destructive",
+      });
+      throw new Error('Channel not found');
+    }
+    
+    // Create new message with provided ID or generate a new one
+    const newMessage: Message = {
+      id: messageId || uuidv4(),
+      channelId,
+      senderId: currentUser.id,
+      content,
+      timestamp: new Date().toISOString(),
+      isRead: false,
+      isEdited: false
+    };
+
+    // Add message to state locally for immediate feedback
+    setMessages(prevMessages => {
+      const channelMessages = [...(prevMessages[channelId] || [])];
+      // Check if this message already exists (by ID) to prevent duplicates
+      if (channelMessages.some(msg => msg.id === newMessage.id)) {
+        console.log(`Message with ID ${newMessage.id} already exists, not adding duplicate`);
+        return prevMessages;
+      }
+      return {
+        ...prevMessages,
+        [channelId]: [...channelMessages, newMessage]
+      };
+    });
+    
+    // Send message via WebSocket
+    websocketService.send('MESSAGE', {
+      message: newMessage
+    });
+    
+    // Stop typing indicator when message is sent
+    stopTyping(channelId);
+  };
+
+  // Handle typing indicators
+  const startTyping = (channelId: string) => {
+    websocketService.send('TYPING', {
+      channelId,
+      userId: currentUser.id,
+      isTyping: true
+    });
+  };
+  
+  const stopTyping = (channelId: string) => {
+    websocketService.send('TYPING', {
+      channelId,
+      userId: currentUser.id,
+      isTyping: false
+    });
+  };
 
   // Add function to switch users
   const switchUser = (userId: string) => {
@@ -394,6 +614,37 @@ export const CommunicationProvider: React.FC<{ children: ReactNode }> = ({ child
     return false;
   };
 
+  // Check if push notifications are enabled
+  useEffect(() => {
+    const checkPushNotifications = async () => {
+      const permissionStatus = await notificationService.getPermissionStatus();
+      setPushNotificationsEnabled(permissionStatus === 'granted');
+    };
+    
+    checkPushNotifications();
+    
+    // Listen for permission changes
+    notificationService.onPermissionChange((permission) => {
+      setPushNotificationsEnabled(permission === 'granted');
+    });
+  }, []);
+  
+  // Enable push notifications
+  const enablePushNotifications = async (): Promise<boolean> => {
+    const permission = await notificationService.requestPermission();
+    setPushNotificationsEnabled(permission === 'granted');
+    return permission === 'granted';
+  };
+  
+  // Disable push notifications
+  const disablePushNotifications = async (): Promise<boolean> => {
+    const success = await notificationService.unsubscribe();
+    if (success) {
+      setPushNotificationsEnabled(false);
+    }
+    return success;
+  };
+
   // Simulate connection issues occasionally
   useEffect(() => {
     const simulateConnectionIssues = () => {
@@ -415,63 +666,6 @@ export const CommunicationProvider: React.FC<{ children: ReactNode }> = ({ child
     // Uncomment to simulate connection issues
     // return simulateConnectionIssues();
   }, []);
-
-  // Handle sending a message
-  const sendMessage = async (channelId: string, content: string): Promise<void> => {
-    if (!isConnected) {
-      toast({
-        title: "Error",
-        description: "Cannot send message while disconnected.",
-        variant: "destructive",
-      });
-      throw new Error('Not connected');
-    }
-
-    // Create new message with current user ID to ensure correct sender tracking
-    const newMessage: Message = {
-      id: uuidv4(),
-      channelId,
-      senderId: currentUser.id, // This ensures the message is tied to current user
-      content,
-      timestamp: new Date().toISOString(),
-      isRead: false,
-      isEdited: false
-    };
-
-    // Update messages state
-    setMessages(prevMessages => {
-      const channelMessages = [...(prevMessages[channelId] || [])];
-      return {
-        ...prevMessages,
-        [channelId]: [...channelMessages, newMessage]
-      };
-    });
-
-    // Create notifications for other channel members
-    const channel = channels.find(c => c.id === channelId);
-    if (!channel) return;
-
-    // Create notifications for all other members of the channel
-    const newNotifications = channel.members
-      .filter(memberId => memberId !== currentUser.id)
-      .map(memberId => ({
-        id: uuidv4(),
-        type: 'message' as const,
-        content: `${currentUser.name} sent a message in ${channel.name}`,
-        timestamp: new Date().toISOString(),
-        isRead: false,
-        senderId: currentUser.id,
-        channelId,
-        messageId: newMessage.id
-      }));
-
-    if (newNotifications.length > 0) {
-      setNotifications(prev => [...newNotifications, ...prev]);
-    }
-
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-  };
 
   // Handle editing a message
   const editMessage = async (messageId: string, channelId: string, newContent: string): Promise<void> => {
@@ -603,8 +797,8 @@ export const CommunicationProvider: React.FC<{ children: ReactNode }> = ({ child
   };
 
   // Create a new channel
-  const createChannel = async (channelData: Partial<Channel>): Promise<void> => {
-    if (!isConnected) {
+  const createChannel = async (name: string, type: 'department' | 'team' | 'direct', members: string[], description?: string, isPrivate?: boolean): Promise<string> => {
+    if (!isConnected && !MOCK_MODE) {
       toast({
         title: "Error",
         description: "Cannot create channel while disconnected.",
@@ -613,51 +807,76 @@ export const CommunicationProvider: React.FC<{ children: ReactNode }> = ({ child
       throw new Error('Not connected');
     }
 
-    // Create new channel
-    const newChannel: Channel = {
-      id: uuidv4(),
-      name: channelData.name || 'New Channel',
-      type: channelData.type || 'team',
-      members: channelData.members || [currentUser.id],
-      description: channelData.description,
-      isPrivate: channelData.isPrivate
-    };
+    try {
+      // Create new channel with a unique ID
+      const channelId = uuidv4();
+      const newChannel: Channel = {
+        id: channelId,
+        name,
+        type,
+        members,
+        description,
+        isPrivate
+      };
 
-    // Update channels state
-    setChannels(prevChannels => [...prevChannels, newChannel]);
+      // Update channels state
+      const updatedChannels = [...channels, newChannel];
+      setChannels(updatedChannels);
 
-    // Initialize empty message array for new channel
-    setMessages(prevMessages => ({
-      ...prevMessages,
-      [newChannel.id]: []
-    }));
+      // Initialize empty message array for new channel
+      const updatedMessages = {
+        ...messages,
+        [newChannel.id]: []
+      };
+      setMessages(updatedMessages);
 
-    // Create notification for channel members
-    if (newChannel.type !== 'direct') {
-      const newNotifications = newChannel.members
-        .filter(memberId => memberId !== currentUser.id)
-        .map(memberId => ({
-          id: uuidv4(),
-          type: 'message' as const,
-          content: `${currentUser.name} created a new channel: ${newChannel.name}`,
-          timestamp: new Date().toISOString(),
-          isRead: false,
-          senderId: currentUser.id,
-          channelId: newChannel.id
-        }));
-
-      if (newNotifications.length > 0) {
-        setNotifications(prev => [...newNotifications, ...prev]);
+      // Explicitly save to localStorage
+      try {
+        localStorage.setItem('channels', JSON.stringify(updatedChannels));
+        localStorage.setItem('messages', JSON.stringify(updatedMessages));
+        console.log('Successfully saved new channel to localStorage:', newChannel.name);
+      } catch (storageError) {
+        console.error('Failed to save channel to localStorage:', storageError);
+        // Continue anyway since we've updated the state
       }
+
+      // Create notification for channel members
+      if (newChannel.type !== 'direct') {
+        const newNotifications = newChannel.members
+          .filter(memberId => memberId !== currentUser.id)
+          .map(memberId => ({
+            id: uuidv4(),
+            type: 'message' as const,
+            content: `${currentUser.name} created a new channel: ${newChannel.name}`,
+            timestamp: new Date().toISOString(),
+            isRead: false,
+            senderId: currentUser.id,
+            channelId: newChannel.id
+          }));
+
+        if (newNotifications.length > 0) {
+          setNotifications(prev => [...newNotifications, ...prev]);
+        }
+      }
+
+      toast({
+        title: "Channel Created",
+        description: `Channel '${newChannel.name}' has been created successfully.`,
+      });
+
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      return newChannel.id;
+    } catch (error) {
+      console.error('Failed to create channel:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create the channel. Please try again.",
+        variant: "destructive",
+      });
+      throw error;
     }
-
-    toast({
-      title: "Channel Created",
-      description: `Channel '${newChannel.name}' has been created successfully.`,
-    });
-
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 500));
   };
 
   // Reconnect function
@@ -679,15 +898,242 @@ export const CommunicationProvider: React.FC<{ children: ReactNode }> = ({ child
 
   // Clear channel messages function
   const clearChannelMessages = (channelId: string): void => {
+    // Update local state
     setMessages(prevMessages => ({
       ...prevMessages,
       [channelId]: []
     }));
     
+    // Broadcast clear action via WebSocket so all clients clear this channel
+    websocketService.send('CLEAR_CHANNEL', {
+      channelId,
+      clearedBy: currentUser.id,
+      timestamp: new Date().toISOString()
+    });
+    
     toast({
       title: "Channel Cleared",
       description: `All messages in channel have been cleared.`,
     });
+  };
+
+  // Mark all messages in a channel as read
+  const markChannelAsRead = (channelId: string): void => {
+    setMessages(prevMessages => {
+      const channelMessages = prevMessages[channelId] || [];
+      
+      // Nothing to update if no messages or all messages are read
+      if (channelMessages.length === 0 || 
+          !channelMessages.some(msg => !msg.isRead && msg.senderId !== currentUser.id)) {
+        return prevMessages;
+      }
+      
+      // Mark all messages as read
+      const updatedMessages = channelMessages.map(message => 
+        !message.isRead && message.senderId !== currentUser.id
+          ? { ...message, isRead: true }
+          : message
+      );
+      
+      // Update state with read messages
+      return {
+        ...prevMessages,
+        [channelId]: updatedMessages
+      };
+    });
+    
+    // Broadcast that user has read all messages in this channel
+    websocketService.send('READ_RECEIPT', {
+      channelId,
+      userId: currentUser.id,
+      timestamp: new Date().toISOString()
+    });
+  };
+
+  // Implement the joinChannel method
+  const joinChannel = async (channelId: string): Promise<boolean> => {
+    if (!isConnected) {
+      toast({
+        title: "Error",
+        description: "Cannot join channel while disconnected.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // Find the channel
+    const channel = channels.find(c => c.id === channelId);
+    if (!channel) {
+      toast({
+        title: "Error",
+        description: "Channel not found.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // Check if already a member
+    if (channel.members.includes(currentUser.id)) {
+      toast({
+        title: "Info",
+        description: "You are already a member of this channel.",
+      });
+      return true;
+    }
+
+    // Add user to channel members
+    const updatedChannel = {
+      ...channel,
+      members: [...channel.members, currentUser.id]
+    };
+
+    // Update channels state
+    setChannels(prevChannels => 
+      prevChannels.map(c => 
+        c.id === channelId ? updatedChannel : c
+      )
+    );
+
+    // Send join notification
+    const joinNotification: Notification = {
+      id: uuidv4(),
+      type: 'message',
+      content: `${currentUser.name} joined the channel ${channel.name}`,
+      timestamp: new Date().toISOString(),
+      isRead: false,
+      senderId: currentUser.id,
+      channelId
+    };
+
+    setNotifications(prev => [joinNotification, ...prev]);
+
+    // Send notification via WebSocket
+    websocketService.send('NOTIFICATION', {
+      notification: joinNotification,
+      channelId
+    });
+
+    toast({
+      title: "Success",
+      description: `You have joined the ${channel.name} channel.`,
+    });
+
+    return true;
+  };
+
+  // Implement the leaveChannel method
+  const leaveChannel = async (channelId: string): Promise<boolean> => {
+    if (!isConnected) {
+      toast({
+        title: "Error",
+        description: "Cannot leave channel while disconnected.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // Find the channel
+    const channel = channels.find(c => c.id === channelId);
+    if (!channel) {
+      toast({
+        title: "Error",
+        description: "Channel not found.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // Check if a member
+    if (!channel.members.includes(currentUser.id)) {
+      toast({
+        title: "Info",
+        description: "You are not a member of this channel.",
+      });
+      return false;
+    }
+
+    // Remove user from channel members
+    const updatedChannel = {
+      ...channel,
+      members: channel.members.filter(id => id !== currentUser.id)
+    };
+
+    // Update channels state
+    setChannels(prevChannels => 
+      prevChannels.map(c => 
+        c.id === channelId ? updatedChannel : c
+      )
+    );
+
+    // Send leave notification
+    const leaveNotification: Notification = {
+      id: uuidv4(),
+      type: 'message',
+      content: `${currentUser.name} left the channel ${channel.name}`,
+      timestamp: new Date().toISOString(),
+      isRead: false,
+      senderId: currentUser.id,
+      channelId
+    };
+
+    setNotifications(prev => [leaveNotification, ...prev]);
+
+    // Send notification via WebSocket
+    websocketService.send('NOTIFICATION', {
+      notification: leaveNotification,
+      channelId
+    });
+
+    toast({
+      title: "Success",
+      description: `You have left the ${channel.name} channel.`,
+    });
+
+    return true;
+  };
+
+  // Debug function to reset localStorage data
+  const resetLocalStorage = (): void => {
+    try {
+      localStorage.removeItem('channels');
+      localStorage.removeItem('messages');
+      
+      // Reset to mock data
+      setChannels(MOCK_CHANNELS);
+      setMessages(MOCK_MESSAGES);
+      
+      // Save mock data
+      localStorage.setItem('channels', JSON.stringify(MOCK_CHANNELS));
+      localStorage.setItem('messages', JSON.stringify(MOCK_MESSAGES));
+      
+      toast({
+        title: "Storage Reset",
+        description: "Channels and messages have been reset to defaults",
+      });
+    } catch (error) {
+      console.error('Error resetting localStorage:', error);
+      toast({
+        title: "Error",
+        description: "Failed to reset storage. See console for details.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  // Debug function to get localStorage information
+  const getLocalStorageInfo = () => {
+    try {
+      const channelsData = localStorage.getItem('channels');
+      const messagesData = localStorage.getItem('messages');
+      
+      return {
+        channels: channelsData ? JSON.parse(channelsData) : [],
+        messages: messagesData ? JSON.parse(messagesData) : {}
+      };
+    } catch (error) {
+      console.error('Error getting localStorage info:', error);
+      return { channels: [], messages: {} };
+    }
   };
 
   // Context value
@@ -698,6 +1144,7 @@ export const CommunicationProvider: React.FC<{ children: ReactNode }> = ({ child
     messages,
     notifications,
     isConnected,
+    connectionStatus,
     sendMessage,
     editMessage,
     deleteMessage,
@@ -706,9 +1153,19 @@ export const CommunicationProvider: React.FC<{ children: ReactNode }> = ({ child
     markAllNotificationsAsRead,
     deleteNotification,
     createChannel,
-    reconnect,
     switchUser,
-    clearChannelMessages
+    clearChannelMessages,
+    startTyping,
+    stopTyping,
+    typingUsers,
+    enablePushNotifications,
+    disablePushNotifications,
+    pushNotificationsEnabled,
+    joinChannel,
+    leaveChannel,
+    resetLocalStorage,
+    getLocalStorageInfo,
+    markChannelAsRead
   };
 
   return (
@@ -721,7 +1178,7 @@ export const CommunicationProvider: React.FC<{ children: ReactNode }> = ({ child
 // Custom hook for using the communication context
 export const useCommunication = (): CommunicationContextType => {
   const context = useContext(CommunicationContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useCommunication must be used within a CommunicationProvider');
   }
   return context;

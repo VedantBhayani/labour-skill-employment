@@ -13,7 +13,9 @@ import {
   Filter,
   Plus,
   MoreHorizontal,
-  Trash2
+  Trash2,
+  FileSignature,
+  CheckCircle
 } from "lucide-react";
 import {
   Card,
@@ -34,6 +36,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { format, parseISO } from "date-fns";
 import { toast } from "@/hooks/use-toast";
+import { DocumentSignatureModal } from "@/components/document-signature-modal";
 
 // Format file size into human-readable format
 const formatFileSize = (bytes: number): string => {
@@ -62,9 +65,11 @@ const getDocumentIcon = (type: string) => {
 };
 
 const Documents = () => {
-  const { filteredDocuments, tags, downloadDocument, toggleFavorite, deleteDocument } = useDocuments();
   const { user } = useAuth();
+  const { documents, tags, downloadDocument, toggleFavorite, deleteDocument } = useDocuments();
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   
   const formatDate = (dateStr: string) => {
     try {
@@ -77,143 +82,178 @@ const Documents = () => {
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
   };
-  
+
+  const openSignatureModal = (documentId: string) => {
+    setSelectedDocumentId(documentId);
+    setIsSignatureModalOpen(true);
+  };
+
   return (
-    <div className="container py-6">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Document Management</h1>
-          <p className="text-muted-foreground">
-            Secure document storage and sharing for your organization
-          </p>
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Documents</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => toast({ title: "Filter clicked" })}>
+            <Filter className="h-4 w-4 mr-2" />
+            Filter
+          </Button>
+          <Button>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload
+          </Button>
         </div>
-        
-        <Button 
-          onClick={() => {
-            toast({
-              title: "Feature coming soon",
-              description: "Document upload feature is under development.",
-            });
-          }}
-          className="flex items-center gap-2"
-        >
-          <Upload className="h-4 w-4" />
-          Upload Document
-        </Button>
       </div>
-      
-      <div className="flex gap-4 mb-6">
-        <div className="relative flex-1">
+
+      <div className="mb-6">
+        <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
           <Input
-            type="text"
             placeholder="Search documents..."
-            className="pl-10"
             value={searchQuery}
-            onChange={handleSearch}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 max-w-md"
           />
         </div>
-        
-        <Button variant="outline" className="flex items-center gap-2">
-          <Filter className="h-4 w-4" />
-          Filters
-        </Button>
       </div>
-      
-      {filteredDocuments.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12">
-          <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-          <h3 className="text-xl font-medium mb-2">No documents found</h3>
-          <p className="text-muted-foreground mb-4">
-            Upload your first document to get started
-          </p>
-          <Button 
-            onClick={() => {
-              toast({
-                title: "Feature coming soon",
-                description: "Document upload feature is under development.",
-              });
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Document
+
+      {documents.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground mb-4">No documents found</p>
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Add your first document
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredDocuments.map((doc) => (
-            <Card key={doc.id} className="hover:shadow-md transition-all">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between">
-                  <div className="flex items-start gap-2">
-                    {getDocumentIcon(doc.type)}
-                    <div>
-                      <CardTitle className="text-lg">{doc.title}</CardTitle>
-                      <CardDescription className="line-clamp-2">{doc.description}</CardDescription>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {documents
+            .filter((doc) => doc.title.toLowerCase().includes(searchQuery.toLowerCase()))
+            .map((doc) => (
+              <Card key={doc.id} className="overflow-hidden">
+                <CardHeader className="p-4 pb-2">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-2">
+                      {getDocumentIcon(doc.type)}
+                      <div>
+                        <CardTitle className="text-base">{doc.title}</CardTitle>
+                        <CardDescription className="text-xs truncate max-w-[180px]">
+                          {doc.description}
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <div className="flex">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => toggleFavorite(doc.id)}
+                        className="h-8 w-8"
+                      >
+                        <Star
+                          className={`h-4 w-4 ${
+                            doc.isFavorite ? "fill-yellow-400 text-yellow-400" : ""
+                          }`}
+                        />
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => downloadDocument(doc.id)}>
+                            <Download className="h-4 w-4 mr-2" />
+                            Download
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openSignatureModal(doc.id)}>
+                            <FileSignature className="h-4 w-4 mr-2" />
+                            {doc.signatures && doc.signatures.length > 0 
+                              ? "View Signatures" 
+                              : "Sign Document"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => deleteDocument(doc.id)}>
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
-                  
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => downloadDocument(doc.id)}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Download
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => toggleFavorite(doc.id)}>
-                        <Star className={`mr-2 h-4 w-4 ${doc.isFavorite ? 'text-yellow-400 fill-yellow-400' : ''}`} />
-                        {doc.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => deleteDocument(doc.id)}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {doc.tags.map(tagId => {
-                    const tag = tags.find(t => t.id === tagId);
-                    if (!tag) return null;
-                    return (
-                      <Badge 
-                        key={tagId}
-                        variant="secondary"
-                        style={{ backgroundColor: tag.color, color: 'white' }}
-                      >
-                        {tag.name}
+                </CardHeader>
+                <CardContent className="p-4 pt-2">
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {doc.tags.map(tagId => {
+                      const tag = tags.find(t => t.id === tagId);
+                      if (!tag) return null;
+                      return (
+                        <Badge 
+                          key={tagId}
+                          variant="secondary"
+                          style={{ backgroundColor: tag.color, color: 'white' }}
+                        >
+                          {tag.name}
+                        </Badge>
+                      );
+                    })}
+                    {doc.needsSignature && (
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                        <FileSignature className="h-3 w-3 mr-1" /> Needs Signature
                       </Badge>
-                    );
-                  })}
-                </div>
-                
-                <div className="text-sm text-muted-foreground">
-                  <div className="flex justify-between mb-1">
-                    <span>Department:</span>
-                    <span className="font-medium">{doc.department}</span>
+                    )}
+                    {doc.signatures && doc.signatures.length > 0 && (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                        <CheckCircle className="h-3 w-3 mr-1" /> 
+                        {doc.signatures.length} {doc.signatures.length === 1 ? 'Signature' : 'Signatures'}
+                      </Badge>
+                    )}
                   </div>
-                  <div className="flex justify-between mb-1">
-                    <span>Size:</span>
-                    <span className="font-medium">{formatFileSize(doc.fileSize)}</span>
+                  
+                  <div className="text-sm text-muted-foreground">
+                    <div className="flex justify-between mb-1">
+                      <span>Department:</span>
+                      <span className="font-medium">{doc.department}</span>
+                    </div>
+                    <div className="flex justify-between mb-1">
+                      <span>Size:</span>
+                      <span className="font-medium">{formatFileSize(doc.fileSize)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Updated:</span>
+                      <span className="font-medium">{formatDate(doc.updatedAt)}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Updated:</span>
-                    <span className="font-medium">{formatDate(doc.updatedAt)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+
+                <CardFooter className="p-2 bg-muted/20 flex justify-end gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8"
+                    onClick={() => downloadDocument(doc.id)}
+                  >
+                    <Download className="h-3 w-3 mr-1" /> Download
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8"
+                    onClick={() => openSignatureModal(doc.id)}
+                  >
+                    <FileSignature className="h-3 w-3 mr-1" /> 
+                    {doc.signatures && doc.signatures.length > 0 ? "Signatures" : "Sign"}
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
         </div>
+      )}
+
+      {selectedDocumentId && (
+        <DocumentSignatureModal
+          documentId={selectedDocumentId}
+          isOpen={isSignatureModalOpen}
+          onClose={() => setIsSignatureModalOpen(false)}
+        />
       )}
     </div>
   );

@@ -12,6 +12,7 @@ const http = require('http');
 const config = require('./config/config');
 const { connectDB } = require('./config/database');
 const { initializeSocketServer } = require('./services/socket.service');
+const schedulerService = require('./services/scheduler.service');
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -26,6 +27,7 @@ const messageRoutes = require('./routes/message.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const forumRoutes = require('./routes/forum.routes');
 const workflowRoutes = require('./routes/workflow.routes');
+const analyticsRoutes = require('./routes/analytics.routes');
 
 // Initialize Express app
 const app = express();
@@ -83,6 +85,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/forum', forumRoutes);
 app.use('/api/workflows', workflowRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Serve static files from the uploads directory
 app.use('/uploads', express.static(path.join(__dirname, '..', config.uploadPath)));
@@ -118,11 +121,15 @@ const io = initializeSocketServer(server);
 // Make io accessible globally
 global.io = io;
 
+// Initialize the scheduled reports service
+schedulerService.initScheduler();
+
 // Start server
 const PORT = config.port;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} in ${config.env} mode`);
+  console.log(`REST API server running on port ${PORT}`);
   console.log(`WebSocket server initialized`);
+  console.log(`Scheduled reports service initialized`);
 });
 
 // Handle unhandled promise rejections

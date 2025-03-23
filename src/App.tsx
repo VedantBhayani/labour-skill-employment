@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import Calendar from "./pages/Calendar";
 import Tasks from "./pages/Tasks";
 import Analytics from "./pages/Analytics";
+import AdvancedAnalytics from "./pages/AdvancedAnalytics";
 import Messages from "./pages/Messages";
 import Notifications from "./pages/Notifications";
 import Departments from "./pages/Departments";
@@ -30,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { GrievanceProvider } from "./components/GrievanceProvider";
 import { AuditProvider } from "./components/AuditProvider";
 import { PluginProvider } from "./components/PluginProvider";
+import { PredictiveAnalyticsProvider } from "./components/PredictiveAnalyticsProvider";
 import { Grievances } from "./pages/Grievances";
 import { AuditLogs } from "./pages/AuditLogs";
 
@@ -110,35 +112,38 @@ const App = () => {
                       <DepartmentsProvider>
                         <DocumentProvider>
                           <PluginProvider>
-                            <TooltipProvider>
-                              <Toaster />
-                              <Sonner position="top-right" />
-                              <Routes>
-                                {/* Public routes */}
-                                <Route path="/login" element={<Login />} />
-                                
-                                {/* Protected dashboard routes */}
-                                <Route path="/" element={<DashboardLayout />}>
-                                  <Route index element={<Index />} />
-                                  <Route path="departments" element={<Departments />} />
-                                  <Route path="tasks" element={<Tasks />} />
-                                  <Route path="analytics" element={<Analytics />} />
-                                  <Route path="messages" element={<Messages />} />
-                                  <Route path="notifications" element={<Notifications />} />
-                                  <Route path="discussions" element={<Discussions />} />
-                                  <Route path="calendar" element={<Calendar />} />
-                                  <Route path="reports" element={<Reports />} />
-                                  <Route path="documents" element={<Documents />} />
-                                  <Route path="settings" element={<Settings />} />
-                                  <Route path="grievances" element={<Grievances />} />
-                                  <Route path="audit-logs" element={<AuditLogs />} />
-                                  <Route path="plugins" element={<Plugins />} />
-                                </Route>
-                                
-                                {/* Catch all route */}
-                                <Route path="*" element={<NotFound />} />
-                              </Routes>
-                            </TooltipProvider>
+                            <PredictiveAnalyticsProvider>
+                              <TooltipProvider>
+                                <Toaster />
+                                <Sonner position="top-right" />
+                                <Routes>
+                                  {/* Public routes */}
+                                  <Route path="/login" element={<Login />} />
+                                  
+                                  {/* Protected dashboard routes */}
+                                  <Route path="/" element={<DashboardLayout />}>
+                                    <Route index element={<Index />} />
+                                    <Route path="departments" element={<Departments />} />
+                                    <Route path="tasks" element={<Tasks />} />
+                                    <Route path="analytics" element={<Analytics />} />
+                                    <Route path="advanced-analytics" element={<AdvancedAnalytics />} />
+                                    <Route path="messages" element={<Messages />} />
+                                    <Route path="notifications" element={<Notifications />} />
+                                    <Route path="discussions" element={<Discussions />} />
+                                    <Route path="calendar" element={<Calendar />} />
+                                    <Route path="reports" element={<Reports />} />
+                                    <Route path="documents" element={<Documents />} />
+                                    <Route path="settings" element={<Settings />} />
+                                    <Route path="grievances" element={<Grievances />} />
+                                    <Route path="audit-logs" element={<AuditLogs />} />
+                                    <Route path="plugins" element={<Plugins />} />
+                                  </Route>
+                                  
+                                  {/* Catch all route */}
+                                  <Route path="*" element={<NotFound />} />
+                                </Routes>
+                              </TooltipProvider>
+                            </PredictiveAnalyticsProvider>
                           </PluginProvider>
                         </DocumentProvider>
                       </DepartmentsProvider>

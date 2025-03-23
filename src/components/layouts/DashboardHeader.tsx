@@ -88,7 +88,7 @@ export function DashboardHeader({ sidebarCollapsed, setSidebarCollapsed, heading
                 </AvatarFallback>
               </Avatar>
               <span className="text-sm font-medium hidden sm:inline-block">
-                {user?.name || "User"}
+                {user?.role || "User"}
               </span>
               <ChevronDown size={16} className="text-muted-foreground" />
             </Button>

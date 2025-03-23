@@ -19,6 +19,7 @@ import {
   ChevronRightSquare,
   ClipboardList,
   Package,
+  BrainCircuit
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -114,6 +115,13 @@ export function DashboardSidebar({ collapsed }: DashboardSidebarProps) {
             to="/analytics" 
             collapsed={collapsed} 
             active={location.pathname === "/analytics"} 
+          />
+          <SidebarItem 
+            icon={BrainCircuit} 
+            label="Advanced Analytics" 
+            to="/advanced-analytics" 
+            collapsed={collapsed} 
+            active={location.pathname === "/advanced-analytics"} 
           />
         </SidebarSection>
 

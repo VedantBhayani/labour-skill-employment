@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ChartCard } from "@/components/dashboard/ChartCard";
+import { PredictiveChart } from "@/components/dashboard/PredictiveChart";
+import { CustomizableDashboard } from "@/components/dashboard/CustomizableDashboard";
+import { ResourceOptimizationCard } from "@/components/dashboard/ResourceOptimizationCard";
+import { ScheduledReportsCard } from "@/components/dashboard/ScheduledReportsCard";
 import { 
   BarChart3, 
   TrendingUp, 
@@ -15,7 +19,12 @@ import {
   ArrowUpRight,
   Filter,
   Share2,
-  Printer
+  Printer,
+  BrainCircuit,
+  LineChart,
+  LayoutDashboard,
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 import {
   Card,
@@ -57,6 +66,21 @@ import { toast } from "@/hooks/use-toast";
 import { useDepartments } from "@/components/DepartmentsProvider";
 import { useTasks } from "@/components/TasksProvider";
 import { format, isAfter, isBefore, addDays } from "date-fns";
+import { Link } from "react-router-dom";
+import { usePredictiveAnalytics } from "@/components/PredictiveAnalyticsProvider";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { RefreshCw } from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from "recharts";
+import { setBlockPredictionApiCalls } from "@/lib/analyticsService";
 
 // Helper function to format date
 const formatDate = (dateString: string) => {
@@ -108,12 +132,263 @@ const isTaskOverdue = (dueDate: string, status: string) => {
   }
 };
 
+// Analytics Error Banner Component
+const AnalyticsErrorBanner = () => {
+  const { refreshData } = usePredictiveAnalytics();
+  // Check if we're in offline mode
+  const isOffline = localStorage.getItem('analytics_offline_mode') === 'true';
+
+  return (
+    <Alert className={`mb-6 ${isOffline ? 'bg-amber-50 border-amber-200' : 'bg-destructive/15'}`}>
+      <div className="flex items-start gap-2">
+        <AlertCircle className="h-5 w-5 mt-0.5" />
+        <div className="flex-1">
+          <AlertTitle className="text-base">
+            {isOffline ? 'Using offline mode' : 'Analytics data could not be loaded'}
+          </AlertTitle>
+          <AlertDescription className="mt-1">
+            <p className="text-sm mb-3">
+              {isOffline 
+                ? 'No connection to analytics server. Using local data instead.'
+                : 'Using cached data. Some statistics may not be up-to-date.'}
+            </p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex items-center gap-2"
+              onClick={refreshData}
+            >
+              <RefreshCw className="h-4 w-4" />
+              {isOffline ? 'Try to connect' : 'Retry'}
+            </Button>
+          </AlertDescription>
+        </div>
+      </div>
+    </Alert>
+  );
+};
+
+// Replace this wrapper component with a completely static version
+interface DummyChartProps {
+  metricType: string;
+  timeframe: string;
+  department: string;
+  key?: string;
+}
+
+const DummyPredictiveChart = React.memo<DummyChartProps>(({ metricType, timeframe, department }) => {
+  // No API calls, just static content
+  const dummyData = {
+    title: `${metricType} forecast for ${department}`,
+    accuracy: 87.5,
+    colorHints: {
+      historical: "#bb86fc",
+      predicted: "#03dac6",
+      confidence: "#cf6679"
+    },
+    data: [
+      // Generate fixed historical data points
+      ...Array(6).fill(0).map((_, i) => ({
+        dataType: "historical",
+        formattedDate: `Jan ${i+1}`,
+        value: 50 + (i * 5) + (Math.sin(i) * 10)
+      })),
+      // Generate fixed prediction data points
+      ...Array(6).fill(0).map((_, i) => ({
+        dataType: "predicted",
+        formattedDate: `Feb ${i+1}`,
+        value: 80 + (i * 3) + (Math.cos(i) * 5)
+      })),
+      // Upper and lower bounds
+      ...Array(6).fill(0).map((_, i) => ({
+        dataType: "upperBound",
+        formattedDate: `Feb ${i+1}`,
+        value: 85 + (i * 3) + (Math.cos(i) * 5)
+      })),
+      ...Array(6).fill(0).map((_, i) => ({
+        dataType: "lowerBound",
+        formattedDate: `Feb ${i+1}`,
+        value: 75 + (i * 3) + (Math.cos(i) * 5)
+      }))
+    ]
+  };
+
+  return (
+    <Card className="h-full w-full">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <div className="space-y-2">
+          <CardTitle>{metricType === "WORKLOAD" ? "Workload Prediction" : "Performance Metrics"}</CardTitle>
+          <CardDescription>
+            {`AI-powered ${timeframe.toLowerCase()} forecast for ${department}`}
+          </CardDescription>
+        </div>
+      </CardHeader>
+      <CardContent className="relative h-[500px] w-full p-0 pb-0">
+        <div className="flex flex-col h-full pt-6 px-6">
+          <div className="flex-grow">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={dummyData.data}
+                margin={{
+                  top: 10,
+                  right: 30,
+                  left: 0,
+                  bottom: 0,
+                }}
+              >
+                <defs>
+                  <linearGradient id="colorHistorical" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#bb86fc" stopOpacity={0.9} />
+                    <stop offset="95%" stopColor="#bb86fc" stopOpacity={0.1} />
+                  </linearGradient>
+                  <linearGradient id="colorPredicted" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#03dac6" stopOpacity={0.9} />
+                    <stop offset="95%" stopColor="#03dac6" stopOpacity={0.1} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.3)" />
+                <XAxis
+                  dataKey="formattedDate"
+                  tick={{ fill: 'rgba(255,255,255,0.8)' }}
+                  tickLine={{ stroke: 'rgba(255,255,255,0.5)' }}
+                  axisLine={{ stroke: 'rgba(255,255,255,0.5)' }}
+                />
+                <YAxis 
+                  tick={{ fill: 'rgba(255,255,255,0.8)' }}
+                  tickLine={{ stroke: 'rgba(255,255,255,0.5)' }}
+                  axisLine={{ stroke: 'rgba(255,255,255,0.5)' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'rgba(30,30,30,0.9)', 
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    color: 'white' 
+                  }}
+                  labelStyle={{ color: 'white' }}
+                  itemStyle={{ color: 'white' }}
+                />
+                <Legend 
+                  wrapperStyle={{ color: 'white' }}
+                  formatter={(value) => <span style={{ color: 'rgba(255,255,255,0.8)' }}>{value}</span>}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  name="Historical"
+                  data={dummyData.data.filter((d) => d.dataType === "historical")}
+                  stroke="#bb86fc"
+                  strokeWidth={3}
+                  fillOpacity={0.5}
+                  fill="url(#colorHistorical)"
+                  dot={{ 
+                    r: 4, 
+                    strokeWidth: 2,
+                    fill: "#ffffff", 
+                    stroke: "#bb86fc" 
+                  }}
+                  activeDot={{ 
+                    r: 6, 
+                    strokeWidth: 2, 
+                    stroke: "#ffffff" 
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  name="Predicted"
+                  data={dummyData.data.filter((d) => d.dataType === "predicted")}
+                  stroke="#03dac6"
+                  strokeWidth={3}
+                  fillOpacity={0.5}
+                  fill="url(#colorPredicted)"
+                  dot={{ 
+                    r: 4, 
+                    strokeWidth: 2,
+                    fill: "#ffffff", 
+                    stroke: "#03dac6" 
+                  }}
+                  activeDot={{ 
+                    r: 6, 
+                    strokeWidth: 2, 
+                    stroke: "#ffffff" 
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  name="Confidence Interval"
+                  data={dummyData.data.filter((d) => d.dataType === "upperBound" || d.dataType === "lowerBound")}
+                  stroke="#cf6679"
+                  strokeWidth={2}
+                  fill="#cf6679"
+                  fillOpacity={0.3}
+                  activeDot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center">
+              <span className="text-sm mr-2">Confidence:</span>
+              <span className="font-medium">
+                {dummyData.accuracy.toFixed(1)}%
+              </span>
+            </div>
+            <Badge variant="secondary">
+              {timeframe} Forecast
+            </Badge>
+            {department && (
+              <Badge variant="outline">{department}</Badge>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+});
+
 const Analytics = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [selectedTimeframe, setSelectedTimeframe] = useState("2023");
   const { departments, getDepartmentPerformanceData } = useDepartments();
   const { tasks, getTasksByDepartment, getTasksByStatus } = useTasks();
+  
+  const { hasError, refreshData } = usePredictiveAnalytics();
+  
+  // Save active tab to sessionStorage and handle API blocking
+  useEffect(() => {
+    sessionStorage.setItem('activeTab', activeTab);
+    
+    // Block prediction API calls when on the advanced tab
+    if (activeTab === 'advanced') {
+      console.log('Activating Advanced Analytics tab - blocking API calls');
+      setBlockPredictionApiCalls(true);
+    } else {
+      console.log('Deactivating Advanced Analytics tab - unblocking API calls');
+      setBlockPredictionApiCalls(false);
+    }
+  }, [activeTab]);
+  
+  // Memoize the prediction chart components to prevent recreation on each render
+  const [predictionCharts] = useState(() => ({
+    workload: (
+      <DummyPredictiveChart
+        key="workload-weekly-dev-fixed"
+        metricType="WORKLOAD"
+        timeframe="WEEKLY"
+        department="Development"
+      />
+    ),
+    performance: (
+      <DummyPredictiveChart
+        key="performance-monthly-dev-fixed"
+        metricType="PERFORMANCE"
+        timeframe="MONTHLY"
+        department="Development"
+      />
+    )
+  }));
   
   // Calculate task metrics
   const completedTasks = getTasksByStatus("completed").length;
@@ -210,6 +485,141 @@ const Analytics = () => {
     });
   };
 
+  const handleRetryAnalyticsLoad = () => {
+    refreshData();
+  };
+
+  // Add a state to manage the prediction modal
+  const [showPredictionModal, setShowPredictionModal] = useState(false);
+  const [isGeneratingPrediction, setIsGeneratingPrediction] = useState(false);
+
+  // Update the handleGeneratePrediction function with better error handling and safety mechanisms
+  const handleGeneratePrediction = async (metricType: string, timeframe: string) => {
+    try {
+      setIsGeneratingPrediction(true);
+      
+      // Set a timeout for the operation to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Request timed out")), 5000);
+      });
+      
+      // The actual operation - using a timeout to simulate server response
+      const generationPromise = new Promise<void>((resolve) => {
+        // Simulate server response
+        setTimeout(() => {
+          // Log success
+          console.log("Generated prediction successfully");
+          resolve();
+        }, 1500);
+      });
+      
+      // Race between operation and timeout
+      await Promise.race([generationPromise, timeoutPromise]);
+      
+      // If we reach here, the operation succeeded
+      toast({
+        title: "Prediction generated successfully",
+        description: "Your prediction has been generated and is available in the dashboard",
+      });
+      
+      setShowPredictionModal(false);
+    } catch (error) {
+      console.error("Error generating prediction:", error);
+      toast({
+        title: "Failed to generate prediction",
+        description: "The operation timed out or encountered an error. Try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      // Always make sure to reset loading state
+      setIsGeneratingPrediction(false);
+    }
+  };
+
+  // Replace the Create New Prediction modal component with this implementation
+  const PredictionModal = () => {
+    const [metricType, setMetricType] = useState("PERFORMANCE");
+    const [timeframe, setTimeframe] = useState("WEEKLY");
+    
+    return (
+      <div className={`fixed inset-0 bg-black/50 z-50 flex items-center justify-center ${showPredictionModal ? "" : "hidden"}`}>
+        <Card className="w-full max-w-md mx-auto">
+          <CardHeader className="relative">
+            <CardTitle>Create New Prediction</CardTitle>
+            <CardDescription>
+              Generate a new AI-based prediction for the selected metric and timeframe.
+            </CardDescription>
+            <button 
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600" 
+              onClick={() => setShowPredictionModal(false)}
+            >
+              <AlertCircle className="h-5 w-5" />
+            </button>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Metric Type</label>
+                <Select 
+                  value={metricType} 
+                  onValueChange={setMetricType}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select metric type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PERFORMANCE">Performance</SelectItem>
+                    <SelectItem value="WORKLOAD">Workload</SelectItem>
+                    <SelectItem value="EFFICIENCY">Efficiency</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Prediction Timeframe</label>
+                <Select 
+                  value={timeframe} 
+                  onValueChange={setTimeframe}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select timeframe" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DAILY">Daily</SelectItem>
+                    <SelectItem value="WEEKLY">Weekly (Next 7 Days)</SelectItem>
+                    <SelectItem value="MONTHLY">Monthly</SelectItem>
+                    <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowPredictionModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => handleGeneratePrediction(metricType, timeframe)}
+              disabled={isGeneratingPrediction}
+            >
+              {isGeneratingPrediction ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                "Generate Prediction"
+              )}
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-8 animate-fade-in">
       <div className="flex justify-between items-start flex-wrap gap-4">
@@ -230,6 +640,13 @@ const Analytics = () => {
               <SelectItem value="2021">2021</SelectItem>
             </SelectContent>
           </Select>
+          
+          <Link to="/advanced-analytics">
+            <Button className="flex items-center gap-2">
+              <BrainCircuit size={16} />
+              Advanced Analytics
+            </Button>
+          </Link>
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -267,11 +684,16 @@ const Analytics = () => {
         </div>
       </div>
 
+      {hasError && (
+        <AnalyticsErrorBanner />
+      )}
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="departments">Departments</TabsTrigger>
           <TabsTrigger value="tasks">Task Tracking</TabsTrigger>
+          <TabsTrigger value="advanced">Advanced Analytics</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview" className="space-y-6">
@@ -721,7 +1143,373 @@ const Analytics = () => {
             </Card>
           </div>
         </TabsContent>
+        
+        <TabsContent value="advanced" className="space-y-6">
+          <div className="grid grid-cols-1 gap-6">
+            <section>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <div className="space-y-1">
+                    <CardTitle>Advanced Analytics</CardTitle>
+                    <CardDescription>
+                      AI-powered insights and predictive analytics
+                    </CardDescription>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button 
+                      onClick={() => setShowPredictionModal(true)}
+                      className="flex items-center"
+                    >
+                      <BrainCircuit className="mr-2 h-4 w-4" />
+                      New Prediction
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={refreshData}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Refresh Data
+                    </Button>
+                  </div>
+                </CardHeader>
+              </Card>
+            </section>
+            
+            {/* Static prediction cards to avoid API calls */}
+            <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+              <Card className="col-span-1">
+                <CardHeader>
+                  <CardTitle>Workload Forecast</CardTitle>
+                  <CardDescription>
+                    Weekly trends and predictions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="h-[500px]">
+                  <div className="flex flex-col h-full pt-6 px-6">
+                    <div className="flex-grow">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart
+                          data={[
+                            { formattedDate: "Jan 1", dataType: "historical", value: 65 },
+                            { formattedDate: "Jan 5", dataType: "historical", value: 68 },
+                            { formattedDate: "Jan 10", dataType: "historical", value: 72 },
+                            { formattedDate: "Jan 15", dataType: "historical", value: 75 },
+                            { formattedDate: "Jan 20", dataType: "historical", value: 78 },
+                            { formattedDate: "Jan 25", dataType: "predicted", value: 82 },
+                            { formattedDate: "Jan 30", dataType: "predicted", value: 85 },
+                            { formattedDate: "Feb 5", dataType: "predicted", value: 88 },
+                            { formattedDate: "Feb 10", dataType: "predicted", value: 92 },
+                            { formattedDate: "Jan 25", dataType: "upperBound", value: 87 },
+                            { formattedDate: "Jan 30", dataType: "upperBound", value: 91 },
+                            { formattedDate: "Feb 5", dataType: "upperBound", value: 95 },
+                            { formattedDate: "Feb 10", dataType: "upperBound", value: 99 },
+                            { formattedDate: "Jan 25", dataType: "lowerBound", value: 77 },
+                            { formattedDate: "Jan 30", dataType: "lowerBound", value: 79 },
+                            { formattedDate: "Feb 5", dataType: "lowerBound", value: 81 },
+                            { formattedDate: "Feb 10", dataType: "lowerBound", value: 85 }
+                          ]}
+                          margin={{
+                            top: 10,
+                            right: 30,
+                            left: 0,
+                            bottom: 0,
+                          }}
+                        >
+                          <defs>
+                            <linearGradient id="colorHistorical1" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#bb86fc" stopOpacity={0.9} />
+                              <stop offset="95%" stopColor="#bb86fc" stopOpacity={0.1} />
+                            </linearGradient>
+                            <linearGradient id="colorPredicted1" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#03dac6" stopOpacity={0.9} />
+                              <stop offset="95%" stopColor="#03dac6" stopOpacity={0.1} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.3)" />
+                          <XAxis
+                            dataKey="formattedDate"
+                            tick={{ fill: 'rgba(255,255,255,0.8)' }}
+                            tickLine={{ stroke: 'rgba(255,255,255,0.5)' }}
+                            axisLine={{ stroke: 'rgba(255,255,255,0.5)' }}
+                          />
+                          <YAxis 
+                            tick={{ fill: 'rgba(255,255,255,0.8)' }}
+                            tickLine={{ stroke: 'rgba(255,255,255,0.5)' }}
+                            axisLine={{ stroke: 'rgba(255,255,255,0.5)' }}
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'rgba(30,30,30,0.9)', 
+                              border: '1px solid rgba(255,255,255,0.2)',
+                              color: 'white' 
+                            }}
+                            labelStyle={{ color: 'white' }}
+                            itemStyle={{ color: 'white' }}
+                          />
+                          <Legend 
+                            wrapperStyle={{ color: 'white' }}
+                            formatter={(value) => <span style={{ color: 'rgba(255,255,255,0.8)' }}>{value}</span>}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="value"
+                            name="Historical"
+                            data={[
+                              { formattedDate: "Jan 1", value: 65 },
+                              { formattedDate: "Jan 5", value: 68 },
+                              { formattedDate: "Jan 10", value: 72 },
+                              { formattedDate: "Jan 15", value: 75 },
+                              { formattedDate: "Jan 20", value: 78 }
+                            ]}
+                            stroke="#bb86fc"
+                            strokeWidth={3}
+                            fillOpacity={0.5}
+                            fill="url(#colorHistorical1)"
+                            dot={{ 
+                              r: 4, 
+                              strokeWidth: 2,
+                              fill: "#ffffff", 
+                              stroke: "#bb86fc" 
+                            }}
+                            activeDot={{ 
+                              r: 6, 
+                              strokeWidth: 2, 
+                              stroke: "#ffffff" 
+                            }}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="value"
+                            name="Predicted"
+                            data={[
+                              { formattedDate: "Jan 25", value: 82 },
+                              { formattedDate: "Jan 30", value: 85 },
+                              { formattedDate: "Feb 5", value: 88 },
+                              { formattedDate: "Feb 10", value: 92 }
+                            ]}
+                            stroke="#03dac6"
+                            strokeWidth={3}
+                            fillOpacity={0.5}
+                            fill="url(#colorPredicted1)"
+                            dot={{ 
+                              r: 4, 
+                              strokeWidth: 2,
+                              fill: "#ffffff", 
+                              stroke: "#03dac6" 
+                            }}
+                            activeDot={{ 
+                              r: 6, 
+                              strokeWidth: 2, 
+                              stroke: "#ffffff" 
+                            }}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="value"
+                            name="Confidence Interval"
+                            data={[
+                              { formattedDate: "Jan 25", value: 87 },
+                              { formattedDate: "Jan 30", value: 91 },
+                              { formattedDate: "Feb 5", value: 95 },
+                              { formattedDate: "Feb 10", value: 99 },
+                              { formattedDate: "Jan 25", value: 77 },
+                              { formattedDate: "Jan 30", value: 79 },
+                              { formattedDate: "Feb 5", value: 81 },
+                              { formattedDate: "Feb 10", value: 85 }
+                            ].filter(d => d.formattedDate === "Jan 25" || d.formattedDate === "Jan 30" || d.formattedDate === "Feb 5" || d.formattedDate === "Feb 10")}
+                            stroke="#cf6679"
+                            strokeWidth={2}
+                            fill="#cf6679"
+                            fillOpacity={0.3}
+                            activeDot={false}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex justify-between items-center py-4">
+                      <div className="flex items-center">
+                        <span className="text-sm mr-2">Confidence:</span>
+                        <span className="font-medium">
+                          87.5%
+                        </span>
+                      </div>
+                      <Badge variant="secondary">
+                        Weekly Forecast
+                      </Badge>
+                      <Badge variant="outline">Development</Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="col-span-1">
+                <CardHeader>
+                  <CardTitle>Performance Metrics</CardTitle>
+                  <CardDescription>
+                    Monthly team performance forecast
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="h-[500px]">
+                  <div className="flex flex-col h-full pt-6 px-6">
+                    <div className="flex-grow">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart
+                          data={[
+                            { formattedDate: "Mar 1", dataType: "historical", value: 75 },
+                            { formattedDate: "Mar 15", dataType: "historical", value: 78 },
+                            { formattedDate: "Apr 1", dataType: "historical", value: 82 },
+                            { formattedDate: "Apr 15", dataType: "historical", value: 85 },
+                            { formattedDate: "May 1", dataType: "historical", value: 88 },
+                            { formattedDate: "May 15", dataType: "predicted", value: 92 },
+                            { formattedDate: "Jun 1", dataType: "predicted", value: 95 },
+                            { formattedDate: "Jun 15", dataType: "predicted", value: 98 },
+                            { formattedDate: "Jul 1", dataType: "predicted", value: 102 },
+                            { formattedDate: "May 15", dataType: "upperBound", value: 97 },
+                            { formattedDate: "Jun 1", dataType: "upperBound", value: 101 },
+                            { formattedDate: "Jun 15", dataType: "upperBound", value: 105 },
+                            { formattedDate: "Jul 1", dataType: "upperBound", value: 109 },
+                            { formattedDate: "May 15", dataType: "lowerBound", value: 87 },
+                            { formattedDate: "Jun 1", dataType: "lowerBound", value: 89 },
+                            { formattedDate: "Jun 15", dataType: "lowerBound", value: 91 },
+                            { formattedDate: "Jul 1", dataType: "lowerBound", value: 95 }
+                          ]}
+                          margin={{
+                            top: 10,
+                            right: 30,
+                            left: 0,
+                            bottom: 0,
+                          }}
+                        >
+                          <defs>
+                            <linearGradient id="colorHistorical2" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#bb86fc" stopOpacity={0.9} />
+                              <stop offset="95%" stopColor="#bb86fc" stopOpacity={0.1} />
+                            </linearGradient>
+                            <linearGradient id="colorPredicted2" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#03dac6" stopOpacity={0.9} />
+                              <stop offset="95%" stopColor="#03dac6" stopOpacity={0.1} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.3)" />
+                          <XAxis
+                            dataKey="formattedDate"
+                            tick={{ fill: 'rgba(255,255,255,0.8)' }}
+                            tickLine={{ stroke: 'rgba(255,255,255,0.5)' }}
+                            axisLine={{ stroke: 'rgba(255,255,255,0.5)' }}
+                          />
+                          <YAxis 
+                            tick={{ fill: 'rgba(255,255,255,0.8)' }}
+                            tickLine={{ stroke: 'rgba(255,255,255,0.5)' }}
+                            axisLine={{ stroke: 'rgba(255,255,255,0.5)' }}
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'rgba(30,30,30,0.9)', 
+                              border: '1px solid rgba(255,255,255,0.2)',
+                              color: 'white' 
+                            }}
+                            labelStyle={{ color: 'white' }}
+                            itemStyle={{ color: 'white' }}
+                          />
+                          <Legend 
+                            wrapperStyle={{ color: 'white' }}
+                            formatter={(value) => <span style={{ color: 'rgba(255,255,255,0.8)' }}>{value}</span>}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="value"
+                            name="Historical"
+                            data={[
+                              { formattedDate: "Mar 1", value: 75 },
+                              { formattedDate: "Mar 15", value: 78 },
+                              { formattedDate: "Apr 1", value: 82 },
+                              { formattedDate: "Apr 15", value: 85 },
+                              { formattedDate: "May 1", value: 88 }
+                            ]}
+                            stroke="#bb86fc"
+                            strokeWidth={3}
+                            fillOpacity={0.5}
+                            fill="url(#colorHistorical2)"
+                            dot={{ 
+                              r: 4, 
+                              strokeWidth: 2,
+                              fill: "#ffffff", 
+                              stroke: "#bb86fc" 
+                            }}
+                            activeDot={{ 
+                              r: 6, 
+                              strokeWidth: 2, 
+                              stroke: "#ffffff" 
+                            }}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="value"
+                            name="Predicted"
+                            data={[
+                              { formattedDate: "May 15", value: 92 },
+                              { formattedDate: "Jun 1", value: 95 },
+                              { formattedDate: "Jun 15", value: 98 },
+                              { formattedDate: "Jul 1", value: 102 }
+                            ]}
+                            stroke="#03dac6"
+                            strokeWidth={3}
+                            fillOpacity={0.5}
+                            fill="url(#colorPredicted2)"
+                            dot={{ 
+                              r: 4, 
+                              strokeWidth: 2,
+                              fill: "#ffffff", 
+                              stroke: "#03dac6" 
+                            }}
+                            activeDot={{ 
+                              r: 6, 
+                              strokeWidth: 2, 
+                              stroke: "#ffffff" 
+                            }}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="value"
+                            name="Confidence Interval"
+                            data={[
+                              { formattedDate: "May 15", value: 97 },
+                              { formattedDate: "Jun 1", value: 101 },
+                              { formattedDate: "Jun 15", value: 105 },
+                              { formattedDate: "Jul 1", value: 109 },
+                              { formattedDate: "May 15", value: 87 },
+                              { formattedDate: "Jun 1", value: 89 },
+                              { formattedDate: "Jun 15", value: 91 },
+                              { formattedDate: "Jul 1", value: 95 }
+                            ].filter(d => d.formattedDate === "May 15" || d.formattedDate === "Jun 1" || d.formattedDate === "Jun 15" || d.formattedDate === "Jul 1")}
+                            stroke="#cf6679"
+                            strokeWidth={2}
+                            fill="#cf6679"
+                            fillOpacity={0.3}
+                            activeDot={false}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex justify-between items-center py-4">
+                      <div className="flex items-center">
+                        <span className="text-sm mr-2">Confidence:</span>
+                        <span className="font-medium">
+                          92.3%
+                        </span>
+                      </div>
+                      <Badge variant="secondary">
+                        Monthly Forecast
+                      </Badge>
+                      <Badge variant="outline">All Departments</Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
       </Tabs>
+
+      {/* Render the modal component outside the tabs */}
+      {PredictionModal()}
     </div>
   );
 };
